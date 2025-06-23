@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PledgeController;
 use App\Http\Controllers\OfferController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\OtpController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -40,6 +41,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
 
     Route::post('/transactions/{transaction}/complete', [TransactionController::class, 'complete'])->name('transactions.complete');
+
+    Route::get('/verify-otp', [OtpController::class, 'show'])->name('otp.form');
+    Route::post('/verify-otp', [OtpController::class, 'verify'])->name('otp.verify');
+
 });
 
 

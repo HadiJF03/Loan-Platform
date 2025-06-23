@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\PhoneVerification;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
+use Twilio\Rest\Client;
+
 
 class RegisteredUserController extends Controller
 {
@@ -36,6 +39,8 @@ class RegisteredUserController extends Controller
             'role' => 'required|in:pledger,pledgee',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
+
+        $Otp = rand(100000, 999999);
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -45,10 +50,21 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        event(new Registered($user));
+        PhoneVerification::updateOrCreate(
+        ['user_id' => $user->id, 'verified_at' => null],
+        [
+            'otp_hash'    => Hash::make($Otp),
+            'expires_at'  => now()->addMinutes(5),
+        ]
+        );
 
-        Auth::login($user);
+        (new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN')))->messages->create($user->mobile_number, [
+            'from' => env('TWILIO_PHONE'),
+            'body' => "Your verification code is: $Otp"
+        ]);
 
-        return redirect(route('dashboard', absolute: false));
+        session(['pending_user_id' => $user->id]);
+
+        return redirect()->route('otp.form')->with('info', 'We\'ve sent a verification code to your phone.');
     }
 }
