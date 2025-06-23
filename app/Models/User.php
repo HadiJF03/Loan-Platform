@@ -21,6 +21,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'mobile_number',
+        'role',
+        'otp_verified',
     ];
 
     /**
@@ -44,5 +47,19 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+    public function pledges()
+    {
+        return $this->hasMany(Pledge::class);
+    }
+
+    public function offers()
+    {
+        return $this->hasMany(Offer::class);
+    }
+
+    public function offerHistories()
+    {
+        return $this->hasMany(Offer_History::class);
     }
 }
