@@ -32,39 +32,27 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'mobile_number' => 'required|string|unique:users',
             'role' => 'required|in:pledger,pledgee',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $Otp = rand(100000, 999999);
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'mobile_number' => $request->mobile_number,
-            'role'          => $request->role,
-            'otp_verified'  => false,
-            'password' => Hash::make($request->password),
-        ]);
+        session(['otp_registration_data' => $data]);
 
-        PhoneVerification::updateOrCreate(
-        ['user_id' => $user->id, 'verified_at' => null],
-        [
-            'otp_hash'    => Hash::make($Otp),
-            'expires_at'  => now()->addMinutes(5),
-        ]
-        );
+        try {
+            $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
 
-        (new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN')))->messages->create($user->mobile_number, [
-            'from' => env('TWILIO_PHONE'),
-            'body' => "Your verification code is: $Otp"
-        ]);
-
-        session(['pending_user_id' => $user->id]);
+            $twilio->verify->v2->services(env('TWILIO_VERIFY_SID'))
+                ->verifications
+                ->create($data['mobile_number'], 'sms');
+        } catch (\Exception $e) {
+            return back()->withErrors(['twilio' => 'OTP send failed: ' . $e->getMessage()]);
+        }
 
         return redirect()->route('otp.form')->with('info', 'We\'ve sent a verification code to your phone.');
     }
+
 }

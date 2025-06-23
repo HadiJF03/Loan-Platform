@@ -2,39 +2,56 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\PhoneVerification;
 use App\Models\User;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Twilio\Rest\Client;
+
 class OtpController extends Controller
 {
     public function show()
     {
-        abort_unless(session()->has('pending_user_id'), 403);
-        return view('auth.verify-otp');
+        return view('auth.otp-verify');
     }
 
     public function verify(Request $request)
     {
-        $request->validate(['otp_code' => 'required|digits:6']);
-        $user = User::findOrFail(session('pending_user_id'));
+        $request->validate([
+            'code' => 'required|string',
+        ]);
 
-        $verification = PhoneVerification::where('user_id', $user->id)
-                        ->whereNull('verified_at')->latest()->first();
+        $data = session('otp_registration_data');
 
-        if (!$verification ||
-            now()->gt($verification->expires_at) ||
-            !Hash::check($request->otp_code, $verification->otp_hash)) {
-            return back()->withErrors(['otp_code' => 'Invalid or expired OTP']);
+        if (!$data) {
+            return redirect()->route('register')->withErrors(['session' => 'Session expired. Please register again.']);
         }
 
-        $verification->update(['verified_at' => now()]);
-        $user->update(['otp_verified' => true]);
+        $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
 
-        session()->forget('pending_user_id');
-        Auth::login($user);
+        $verification = $twilio->verify->v2->services(env('TWILIO_VERIFY_SID'))
+            ->verificationChecks
+            ->create([
+                'to'   => $data['mobile_number'],
+                'code' => $request->code,
+            ]);
 
-        return redirect()->route('dashboard')->with('success', 'Phone verified!');
+        if ($verification->status === 'approved') {
+            $user = User::create([
+                'name'          => $data['name'],
+                'mobile_number' => $data['mobile_number'],
+                'password'      => Hash::make($data['password']),
+                'role'          => $data['role'],
+                'otp_verified'  => true,
+            ]);
+
+            session()->forget('otp_registration_data');
+
+            Auth::login($user);
+
+            return redirect()->route('dashboard')->with('success', 'Phone verified. Welcome!');
+        }
+
+        return back()->withErrors(['code' => 'The verification code is invalid.']);
     }
 }
