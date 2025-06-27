@@ -49,10 +49,12 @@ class RegisteredUserController extends Controller
                 ->verifications
                 ->create($data['mobile_number'], 'sms');
         } catch (\Exception $e) {
+            dd('Twilio Error:', $e->getMessage());
             return back()->withErrors(['twilio' => 'OTP send failed: ' . $e->getMessage()]);
         }
 
         return redirect()->route('otp.form')->with('info', 'We\'ve sent a verification code to your phone.');
     }
+
 
 }

@@ -12,10 +12,10 @@ class TransactionController extends Controller
 {
     public function index()
     {
-        $userId = Auth::id();
+        $user = Auth::user();
         $transactions = Transaction::with(['pledge', 'offer'])
-            ->where('lender_id', $userId)
-            ->orWhere('borrower_id', $userId)
+            ->whereHas('offer', fn($q) => $q->where('user_id', $user->id))
+            ->orWhereHas('pledge', fn($q) => $q->where('user_id', $user->id))
             ->latest()
             ->paginate(10);
 
@@ -29,23 +29,55 @@ class TransactionController extends Controller
         return view('transactions.show', compact('transaction'));
     }
 
-
-    public function store(Pledge $pledge, Offer $offer)
+    public function edit(Transaction $transaction)
     {
+        $this->authorize('update', $transaction);
+
+        return view('transactions.edit', compact('transaction'));
+    }
+
+    public function update(Request $request, Transaction $transaction)
+    {
+        $this->authorize('update', $transaction);
+
+        $validated = $request->validate([
+            'payment_method'  => 'required|in:Card Payment,Bank Transfer,STC Pay',
+            'delivery_method' => 'required|in:in-person,shipping,secure drop point',
+        ]);
+
+        $transaction->update($validated);
+
+        return redirect()->route('transactions.show', $transaction)->with('success', 'Transaction updated with delivery and payment method.');
+    }
+
+    public function store(Request $request, Pledge $pledge, Offer $offer)
+    {
+        $this->authorize('create', [Transaction::class, $pledge, $offer]);
+
         if ($pledge->transaction) {
             return back()->with('error', 'Transaction already exists.');
         }
 
+        $validated = $request->validate([
+            'payment_method'  => 'required|in:Card Payment,Bank Transfer,STC Pay',
+            'delivery_method' => 'required|in:in-person,shipping,secure drop point',
+        ]);
+
+        $startDate = now();
+        $endDate   = now()->addDays($offer->duration);
+
+        $commission = $offer->offer_amount * 0.05;
+
         $transaction = Transaction::create([
-            'pledge_id'    => $pledge->id,
-            'offer_id'     => $offer->id,
-            'borrower_id'  => $pledge->user_id,
-            'lender_id'    => $offer->user_id,
-            'amount'       => $offer->offer_amount,
-            'duration'     => $offer->duration,
-            'status'       => 'active',
-            'started_at'   => now(),
-            'due_at'       => now()->addDays($offer->duration),
+            'pledge_id'         => $pledge->id,
+            'offer_id'          => $offer->id,
+            'start_date'        => $startDate,
+            'end_date'          => $endDate,
+            'collateral_status' => 'active',
+            'payment_status'    => 'pending',
+            'commission'        => $commission,
+            'payment_method'    => $validated['payment_method'],
+            'delivery_method'   => $validated['delivery_method'],
         ]);
 
         return redirect()->route('transactions.show', $transaction)->with('success', 'Transaction created successfully.');
@@ -56,9 +88,40 @@ class TransactionController extends Controller
         $this->authorize('update', $transaction);
 
         $transaction->update([
-            'status' => 'completed',
+            'collateral_status' => 'closed',
+            'payment_status' => 'paid',
         ]);
 
         return back()->with('success', 'Transaction marked as completed.');
+    }
+
+    public function confirmCollateral(Transaction $transaction)
+    {
+        $this->authorize('update', $transaction);
+
+        $user = Auth::user();
+
+        if ($user->id === $transaction->pledge->user_id) {
+            $transaction->update(['collateral_confirmed_by_pledger' => true]);
+        } elseif ($user->id === $transaction->offer->user_id) {
+            $transaction->update(['collateral_confirmed_by_pledgee' => true]);
+        }
+
+        return back()->with('success', 'Collateral confirmation saved.');
+    }
+
+    public function confirmPayment(Transaction $transaction)
+    {
+        $this->authorize('update', $transaction);
+
+        $user = Auth::user();
+
+        if ($user->id === $transaction->pledge->user_id) {
+            $transaction->update(['payment_confirmed_by_pledger' => true]);
+        } elseif ($user->id === $transaction->offer->user_id) {
+            $transaction->update(['payment_confirmed_by_pledgee' => true]);
+        }
+
+        return back()->with('success', 'Payment confirmation saved.');
     }
 }

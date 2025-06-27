@@ -16,6 +16,35 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
                 </div>
+                @auth
+                    @if(auth()->user()->role === 'pledger')
+                        <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                            <x-nav-link :href="route('pledges.index')" :active="request()->routeIs('pledges.*')">
+                                {{ __('My Pledges') }}
+                            </x-nav-link>
+                            <x-nav-link :href="route('offers.index')" :active="request()->routeIs('offers.index')">
+                                {{ __('My Offers') }}
+                            </x-nav-link>
+                        </div>
+                    @elseif(auth()->user()->role === 'pledgee')
+                        <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                            <x-nav-link :href="route('pledges.browse')" :active="request()->routeIs('pledges.browse')">
+                                {{ __('Browse Pledges') }}
+                            </x-nav-link>
+                        </div>
+                        <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                            <x-nav-link :href="route('offers.index')" :active="request()->routeIs('offers.index')">
+                                {{ __('My Offers') }}
+                            </x-nav-link>
+                            
+                        </div>
+                    @endif
+                    <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                        <x-nav-link :href="route('transactions.index')" :active="request()->routeIs('transactions.index')">
+                                    {{ __('Transactions') }}
+                        </x-nav-link>
+                    </div>
+                @endauth
             </div>
 
             <!-- Settings Dropdown -->

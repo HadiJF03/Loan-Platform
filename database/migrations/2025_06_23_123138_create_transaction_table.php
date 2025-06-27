@@ -20,6 +20,7 @@ return new class extends Migration
             $table->enum('collateral_status', ['active', 'closed', 'delayed', 'lost'])->default('active');
             $table->enum('payment_status', ['pending', 'paid', 'overdue'])->default('pending');
             $table->decimal('commission', 10, 2)->default(0);
+            $table->enum('payment_method',['Card Payment','Bank Transfer', 'STC Pay']);
             $table->enum('delivery_method',['in-person','shipping','secure drop point']);
             $table->timestamps();
         });

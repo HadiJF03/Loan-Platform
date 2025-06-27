@@ -17,8 +17,10 @@ class Transaction extends Model
         'collateral_status',
         'payment_status',
         'commission',
+        'payment_method',
         'delivery_method',
     ];
+
     public function pledge()
     {
         return $this->belongsTo(Pledge::class);

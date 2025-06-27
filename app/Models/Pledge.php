@@ -32,5 +32,5 @@ class Pledge extends Model
     {
         return $this->hasOne(Transaction::class);
     }
-
+    
 }

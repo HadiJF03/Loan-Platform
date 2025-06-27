@@ -45,4 +45,10 @@ class Offer extends Model
     {
         return $this->hasMany(Offer_History::class);
     }
+    public function latestAmendment()
+    {
+        return $this->amendments()->orderByDesc('created_at')->first();
+    }
+
+
 }

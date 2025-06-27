@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('pledges', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('item_type');
+            $table->enum('item_type',['Electronics','Jewelry','Vehicles','Real Estate','Precious Metals']);
             $table->text('description');
             $table->json('images')->nullable();
             $table->decimal('requested_amount',10 , 2);

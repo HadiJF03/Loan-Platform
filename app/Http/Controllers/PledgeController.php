@@ -3,105 +3,151 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pledge;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Request;
 
 class PledgeController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
         $pledges = Pledge::with('user')->latest()->get();
         return view('pledges.index', compact('pledges'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
+    public function browse(Request $request)
+    {
+        $this->authorize('browse', Pledge::class);
+
+        $query = Pledge::with('user');
+
+        if ($request->filled('item_type')) {
+            $query->where('item_type', $request->item_type);
+        }
+
+        if ($request->filled('min_amount')) {
+            $query->where('requested_amount', '>=', $request->min_amount);
+        }
+
+        if ($request->filled('max_amount')) {
+            $query->where('requested_amount', '<=', $request->max_amount);
+        }
+
+        switch ($request->sort) {
+            case 'oldest':
+                $query->oldest();
+                break;
+            case 'high_amount':
+                $query->orderByDesc('requested_amount');
+                break;
+            case 'low_amount':
+                $query->orderBy('requested_amount');
+                break;
+            default:
+                $query->latest();
+                break;
+        }
+
+        $pledges = $query->paginate(10)->withQueryString();
+
+        return view('pledges.browse', compact('pledges'));
+    }
+
     public function create()
     {
+        $this->authorize('create', Pledge::class);
+
         return view('pledges.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
+        $this->authorize('create', Pledge::class);
+
         $data = $request->validate([
-        'item_type' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'requested_amount' => 'required|numeric',
-        'collateral_duration' => 'required|integer',
-        'repayment_terms' => 'nullable|string',
-    ]);
+            'item_type'           => 'required|string|in:Jewelry,Electronics,Vehicles,Real Estate,Precious Metals',
+            'description'         => 'nullable|string',
+            'requested_amount'    => 'required|numeric',
+            'collateral_duration' => 'required|integer',
+            'repayment_terms'     => 'nullable|string',
+            'images.*'            => 'image|max:2048',
+        ]);
+
         $data['user_id'] = Auth::id();
+
+        if ($request->hasFile('images')) {
+            $paths = [];
+            foreach ($request->file('images') as $image) {
+                $paths[] = $image->store('pledge_images', 'public');
+            }
+            $data['images'] = json_encode($paths);
+        }
+
         Pledge::create($data);
 
         return redirect()->route('pledges.index')->with('success', 'Pledge submitted.');
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Pledge $pledge)
     {
-        return view('pledges.show', compact('pledge'));
+        $this->authorize('view', $pledge);
 
+        return view('pledges.show', compact('pledge'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Pledge $pledge)
     {
-        if ($pledge->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $pledge);
 
         return view('pledges.edit', compact('pledge'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Pledge $pledge)
     {
-        if ($pledge->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $pledge);
 
         $data = $request->validate([
-            'item_type'           => 'required|string|max:255',
-            'description'         => 'nullable|string',
-            'requested_amount'    => 'required|numeric',
+            'description'         => 'required|string',
+            'requested_amount'    => 'required|numeric|min:0',
             'collateral_duration' => 'required|integer',
             'repayment_terms'     => 'nullable|string',
-            'status'              => 'required|in:open,negotiating,finalized,withdrawn',
+            'images.*'            => 'image|max:2048',
         ]);
+
+        // Handle optional image replacement
+        if ($request->hasFile('images')) {
+            // Optionally delete old images
+            if ($pledge->images) {
+                foreach (json_decode($pledge->images, true) as $oldImage) {
+                    Storage::disk('public')->delete($oldImage);
+                }
+            }
+
+            $paths = [];
+            foreach ($request->file('images') as $image) {
+                $paths[] = $image->store('pledge_images', 'public');
+            }
+            $data['images'] = json_encode($paths);
+        }
 
         $pledge->update($data);
 
-        return redirect()
-            ->route('pledges.show', $pledge)
-            ->with('success', 'Pledge updated.');
+        return redirect()->route('pledges.index')->with('success', 'Pledge updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Pledge $pledge)
     {
-        if ($pledge->user_id !== Auth::id()) {
-            abort(403);
+        $this->authorize('delete', $pledge);
+
+        // Optional: delete images on removal
+        if ($pledge->images) {
+            foreach (json_decode($pledge->images, true) as $img) {
+                Storage::disk('public')->delete($img);
+            }
         }
 
         $pledge->delete();
 
-        return redirect()
-            ->route('pledges.index')
-            ->with('success', 'Pledge deleted.');
+        return redirect()->route('pledges.index')->with('success', 'Pledge deleted.');
     }
 }

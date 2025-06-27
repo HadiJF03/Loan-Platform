@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Twilio\Rest\Client;
+use Illuminate\Support\Facades\Log;
 
 class OtpController extends Controller
 {
@@ -27,6 +28,7 @@ class OtpController extends Controller
             return redirect()->route('register')->withErrors(['session' => 'Session expired. Please register again.']);
         }
 
+        try {
         $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
 
         $verification = $twilio->verify->v2->services(env('TWILIO_VERIFY_SID'))
@@ -35,6 +37,8 @@ class OtpController extends Controller
                 'to'   => $data['mobile_number'],
                 'code' => $request->code,
             ]);
+
+        dd($verification); // <-- This should now output the response
 
         if ($verification->status === 'approved') {
             $user = User::create([
@@ -46,12 +50,14 @@ class OtpController extends Controller
             ]);
 
             session()->forget('otp_registration_data');
-
             Auth::login($user);
 
             return redirect()->route('dashboard')->with('success', 'Phone verified. Welcome!');
         }
 
         return back()->withErrors(['code' => 'The verification code is invalid.']);
+    } catch (\Exception $e) {
+        dd($e->getMessage());
+    }
     }
 }
