@@ -53,8 +53,6 @@ Route::middleware('auth')->group(function () {
     Route::put('/transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update');
     Route::post('/transactions/{transaction}/confirm-collateral', [TransactionController::class, 'confirmCollateral'])->name('transactions.confirmCollateral');
     Route::post('/transactions/{transaction}/confirm-payment', [TransactionController::class, 'confirmPayment'])->name('transactions.confirmPayment');
-
-
     Route::post('/transactions/{transaction}/complete', [TransactionController::class, 'complete'])->name('transactions.complete');
 
     

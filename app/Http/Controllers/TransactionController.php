@@ -47,7 +47,8 @@ class TransactionController extends Controller
 
         $transaction->update($validated);
 
-        return redirect()->route('transactions.show', $transaction)->with('success', 'Transaction updated with delivery and payment method.');
+        return redirect()->route('transactions.show', $transaction)
+            ->with('success', 'Transaction updated with delivery and payment method.');
     }
 
     public function store(Request $request, Pledge $pledge, Offer $offer)
@@ -65,7 +66,6 @@ class TransactionController extends Controller
 
         $startDate = now();
         $endDate   = now()->addDays($offer->duration);
-
         $commission = $offer->offer_amount * 0.05;
 
         $transaction = Transaction::create([
@@ -78,9 +78,14 @@ class TransactionController extends Controller
             'commission'        => $commission,
             'payment_method'    => $validated['payment_method'],
             'delivery_method'   => $validated['delivery_method'],
+            'collateral_confirmed_by_pledger' => false,
+            'collateral_confirmed_by_pledgee' => false,
+            'payment_confirmed_by_pledger'    => false,
+            'payment_confirmed_by_pledgee'    => false,
         ]);
 
-        return redirect()->route('transactions.show', $transaction)->with('success', 'Transaction created successfully.');
+        return redirect()->route('transactions.show', $transaction)
+            ->with('success', 'Transaction created successfully.');
     }
 
     public function complete(Transaction $transaction)
@@ -89,7 +94,7 @@ class TransactionController extends Controller
 
         $transaction->update([
             'collateral_status' => 'closed',
-            'payment_status' => 'paid',
+            'payment_status'    => 'paid',
         ]);
 
         return back()->with('success', 'Transaction marked as completed.');
@@ -107,6 +112,8 @@ class TransactionController extends Controller
             $transaction->update(['collateral_confirmed_by_pledgee' => true]);
         }
 
+        $this->checkAndComplete($transaction);
+
         return back()->with('success', 'Collateral confirmation saved.');
     }
 
@@ -122,6 +129,23 @@ class TransactionController extends Controller
             $transaction->update(['payment_confirmed_by_pledgee' => true]);
         }
 
+        $this->checkAndComplete($transaction);
+
         return back()->with('success', 'Payment confirmation saved.');
+    }
+
+    protected function checkAndComplete(Transaction $transaction)
+    {
+        if (
+            $transaction->collateral_confirmed_by_pledger &&
+            $transaction->collateral_confirmed_by_pledgee &&
+            $transaction->payment_confirmed_by_pledger &&
+            $transaction->payment_confirmed_by_pledgee
+        ) {
+            $transaction->update([
+                'collateral_status' => 'closed',
+                'payment_status'    => 'paid',
+            ]);
+        }
     }
 }

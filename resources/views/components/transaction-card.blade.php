@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <div class="mt-4">
+        <div class="mt-4 text-sm text-gray-800 dark:text-gray-200">
             <p>
                 <strong>Collateral Status:</strong>
                 <span class="inline-block px-2 py-1 rounded text-white text-xs
