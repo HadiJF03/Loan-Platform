@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Policies;
 
 use App\Models\Transaction;
@@ -7,48 +6,61 @@ use App\Models\User;
 
 class TransactionPolicy
 {
-    /**
-     * Determine if the user can view the transaction.
-     */
     public function view(User $user, Transaction $transaction): bool
     {
-        return $user->id === $transaction->pledge->user_id
-            || $user->id === $transaction->offer->user_id;
+        $pledgerId = optional($transaction->pledge)->user_id;
+        $pledgeeId = optional($transaction->offer?->rootOffer())->user_id;
+
+        return $user->id === $pledgerId || $user->id === $pledgeeId;
     }
 
-    /**
-     * Determine if the user can update the transaction.
-     * (used for confirming collateral or payment)
-     */
     public function update(User $user, Transaction $transaction): bool
     {
-        return $user->id === $transaction->pledge->user_id
-            || $user->id === $transaction->offer->user_id;
+        return $this->view($user, $transaction);
     }
 
-    /**
-     * Optional: Determine if the user can delete the transaction.
-     */
     public function delete(User $user, Transaction $transaction): bool
     {
-        return false; // You can customize this if needed
+        return false;
     }
 
-    /**
-     * Determine if the user can confirm collateral.
-     */
     public function confirmCollateral(User $user, Transaction $transaction): bool
     {
-        return $user->id === $transaction->pledge->user_id
-            || $user->id === $transaction->offer->user_id;
+        return $this->view($user, $transaction);
     }
 
-    /**
-     * Determine if the user can confirm payment.
-     */
     public function confirmPayment(User $user, Transaction $transaction): bool
     {
-        return $user->id === $transaction->pledge->user_id
-            || $user->id === $transaction->offer->user_id;
+        return $this->view($user, $transaction);
     }
+    public function confirmCollateralSent(User $user, Transaction $transaction): bool
+    {
+        return $user->id === $transaction->pledge->user_id;
+    }
+
+    public function confirmCollateralReceived(User $user, Transaction $transaction): bool
+    {
+        $rootOffer = $transaction->offer;
+        while ($rootOffer->parentOffer) {
+            $rootOffer = $rootOffer->parentOffer;
+        }
+
+        return $user->id === $rootOffer->user_id && $transaction->collateral_confirmed_by_pledger;
+    }
+
+    public function confirmPaymentSent(User $user, Transaction $transaction): bool
+    {
+        $rootOffer = $transaction->offer;
+        while ($rootOffer->parentOffer) {
+            $rootOffer = $rootOffer->parentOffer;
+        }
+
+        return $user->id === $rootOffer->user_id;
+    }
+
+    public function confirmPaymentReceived(User $user, Transaction $transaction): bool
+    {
+        return $user->id === $transaction->pledge->user_id && $transaction->payment_confirmed_by_pledgee;
+    }
+
 }

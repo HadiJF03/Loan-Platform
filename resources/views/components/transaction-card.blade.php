@@ -1,5 +1,17 @@
 @props(['transaction'])
 
+@php
+    $user = auth()->user();
+    $isPledger = $user->id === $transaction->pledge->user_id;
+
+    // Traverse to root offer (original offer creator)
+    $offer = $transaction->offer;
+    while ($offer->parentOffer) {
+        $offer = $offer->parentOffer;
+    }
+    $isPledgee = $user->id === $offer->user_id;
+@endphp
+
 @can('view', $transaction)
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border mb-4">
         <div class="mb-2">
@@ -74,22 +86,40 @@
 
                 {{-- Confirm Collateral --}}
                 @if (!($transaction->collateral_confirmed_by_pledger && $transaction->collateral_confirmed_by_pledgee))
-                    <form method="POST" action="{{ route('transactions.confirmCollateral', $transaction->id) }}">
-                        @csrf
-                        <x-secondary-button type="submit" onclick="return confirm('Confirm that collateral was handed over?')">
-                            Confirm Collateral Received
-                        </x-secondary-button>
-                    </form>
+                    @if ($isPledger && !$transaction->collateral_confirmed_by_pledger)
+                        <form method="POST" action="{{ route('transactions.confirmCollateral', $transaction->id) }}">
+                            @csrf
+                            <x-secondary-button type="submit" onclick="return confirm('Confirm that you sent the collateral?')">
+                                Confirm Collateral Sent
+                            </x-secondary-button>
+                        </form>
+                    @elseif ($isPledgee && $transaction->collateral_confirmed_by_pledger && !$transaction->collateral_confirmed_by_pledgee)
+                        <form method="POST" action="{{ route('transactions.confirmCollateral', $transaction->id) }}">
+                            @csrf
+                            <x-secondary-button type="submit" onclick="return confirm('Confirm that you received the collateral?')">
+                                Confirm Collateral Received
+                            </x-secondary-button>
+                        </form>
+                    @endif
                 @endif
 
                 {{-- Confirm Payment --}}
                 @if (!($transaction->payment_confirmed_by_pledger && $transaction->payment_confirmed_by_pledgee))
-                    <form method="POST" action="{{ route('transactions.confirmPayment', $transaction->id) }}">
-                        @csrf
-                        <x-secondary-button type="submit" onclick="return confirm('Confirm that payment was made?')">
-                            Confirm Payment Received
-                        </x-secondary-button>
-                    </form>
+                    @if ($isPledgee && !$transaction->payment_confirmed_by_pledgee)
+                        <form method="POST" action="{{ route('transactions.confirmPayment', $transaction->id) }}">
+                            @csrf
+                            <x-secondary-button type="submit" onclick="return confirm('Confirm that you sent the payment?')">
+                                Confirm Payment Sent
+                            </x-secondary-button>
+                        </form>
+                    @elseif ($isPledger && $transaction->payment_confirmed_by_pledgee && !$transaction->payment_confirmed_by_pledger)
+                        <form method="POST" action="{{ route('transactions.confirmPayment', $transaction->id) }}">
+                            @csrf
+                            <x-secondary-button type="submit" onclick="return confirm('Confirm that you received the payment?')">
+                                Confirm Payment Received
+                            </x-secondary-button>
+                        </form>
+                    @endif
                 @endif
             </div>
         @endcan

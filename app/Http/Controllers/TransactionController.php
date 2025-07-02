@@ -13,13 +13,39 @@ class TransactionController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $transactions = Transaction::with(['pledge', 'offer'])
-            ->whereHas('offer', fn($q) => $q->where('user_id', $user->id))
-            ->orWhereHas('pledge', fn($q) => $q->where('user_id', $user->id))
-            ->latest()
-            ->paginate(10);
 
-        return view('transactions.index', compact('transactions'));
+        // Eager-load everything needed, including parent offers
+        $allTransactions = Transaction::with([
+            'pledge', 
+            'offer.parentOffer.parentOffer' // supports 2-level nesting
+        ])->get();
+
+        // Manually filter based on pledger or root pledgee
+        $filtered = $allTransactions->filter(function ($transaction) use ($user) {
+            $pledgerId = optional($transaction->pledge)->user_id;
+
+            // Use rootOffer to find the original offer creator
+            $currentOffer = $transaction->offer;
+            while ($currentOffer?->parentOffer) {
+                $currentOffer = $currentOffer->parentOffer;
+            }
+            $pledgeeId = $currentOffer?->user_id;
+
+            return $user->id === $pledgerId || $user->id === $pledgeeId;
+        });
+
+        // Paginate manually since it's a collection
+        $perPage = 10;
+        $page = request('page', 1);
+        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $filtered->forPage($page, $perPage)->values(),
+            $filtered->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
+        return view('transactions.index', ['transactions' => $paginated]);
     }
 
     public function show(Transaction $transaction)
@@ -108,8 +134,15 @@ class TransactionController extends Controller
 
         if ($user->id === $transaction->pledge->user_id) {
             $transaction->update(['collateral_confirmed_by_pledger' => true]);
-        } elseif ($user->id === $transaction->offer->user_id) {
-            $transaction->update(['collateral_confirmed_by_pledgee' => true]);
+        } else {
+            $offer = $transaction->offer;
+            while ($offer->parentOffer) {
+                $offer = $offer->parentOffer;
+            }
+
+            if ($user->id === $offer->user_id) {
+                $transaction->update(['collateral_confirmed_by_pledgee' => true]);
+            }
         }
 
         $this->checkAndComplete($transaction);
@@ -125,14 +158,23 @@ class TransactionController extends Controller
 
         if ($user->id === $transaction->pledge->user_id) {
             $transaction->update(['payment_confirmed_by_pledger' => true]);
-        } elseif ($user->id === $transaction->offer->user_id) {
-            $transaction->update(['payment_confirmed_by_pledgee' => true]);
+        } else {
+            // Traverse to the root offer (original pledgee)
+            $offer = $transaction->offer;
+            while ($offer->parentOffer) {
+                $offer = $offer->parentOffer;
+            }
+
+            if ($user->id === $offer->user_id) {
+                $transaction->update(['payment_confirmed_by_pledgee' => true]);
+            }
         }
 
         $this->checkAndComplete($transaction);
 
         return back()->with('success', 'Payment confirmation saved.');
     }
+
 
     protected function checkAndComplete(Transaction $transaction)
     {

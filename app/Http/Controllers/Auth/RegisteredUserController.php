@@ -39,15 +39,14 @@ class RegisteredUserController extends Controller
             'role' => 'required|in:pledger,pledgee',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
-
+        $data['mobile_number'] = '+966' . ltrim($data['mobile_number'], '0');
         session(['otp_registration_data' => $data]);
 
         try {
             $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
 
             $twilio->verify->v2->services(env('TWILIO_VERIFY_SID'))
-                ->verifications
-                ->create($data['mobile_number'], 'sms');
+                ->verifications->create($data['mobile_number'], 'sms');
         } catch (\Exception $e) {
             dd('Twilio Error:', $e->getMessage());
             return back()->withErrors(['twilio' => 'OTP send failed: ' . $e->getMessage()]);

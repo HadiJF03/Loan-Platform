@@ -55,20 +55,32 @@ class OfferController extends Controller
         $data['status'] = 'pending';
         $data['is_amendment'] = false;
 
+        // Create the offer
         Offer::create($data);
+
+        // Mark the pledge as negotiating
+        $pledge->update(['status' => 'negotiating']);
 
         return redirect()->route('pledges.browse', $pledge)->with('success', 'Offer submitted.');
     }
+
 
     public function accept(Offer $offer)
     {
         $this->authorize('manage', $offer);
 
+        // Accept the offer
         $offer->update(['status' => 'accepted']);
 
+        // Close the related pledge
+        $pledge = $offer->pledge;
+        $pledge->update(['status' => 'finalized']);
+
+        // Determine start and end dates
         $startDate = now();
         $endDate = now()->addDays($offer->duration);
 
+        // Create the transaction
         Transaction::create([
             'pledge_id'         => $offer->pledge_id,
             'offer_id'          => $offer->id,
@@ -76,13 +88,21 @@ class OfferController extends Controller
             'end_date'          => $endDate,
             'collateral_status' => 'active',
             'payment_status'    => 'pending',
-            'commission'        => 0, // placeholder
+            'commission'        => 0, // Add real logic later
             'payment_method'    => null,
             'delivery_method'   => null,
+            'collateral_confirmed_by_pledger' => false,
+            'collateral_confirmed_by_pledgee' => false,
+            'payment_confirmed_by_pledger'    => false,
+            'payment_confirmed_by_pledgee'    => false,
         ]);
 
-        return redirect()->route('transactions.index')->with('success', 'Offer accepted. Transaction created.');
+        return redirect()
+            ->route('transactions.index')
+            ->with('success', 'Offer accepted and transaction created. Pledge marked as closed.');
     }
+
+
 
     public function reject(Offer $offer)
     {
@@ -113,7 +133,7 @@ class OfferController extends Controller
     public function amend(Request $request, Offer $offer)
     {
         $this->authorize('amend', $offer);
-
+        
         $data = $request->validate([
             'offer_amount' => 'required|numeric|min:1',
             'duration'     => 'required|integer|min:1',

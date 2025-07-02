@@ -20,7 +20,6 @@ class Offer extends Model
         'parent_offer_id',
     ];
 
-    // Relationships
     public function pledge()
     {
         return $this->belongsTo(Pledge::class);
@@ -45,10 +44,25 @@ class Offer extends Model
     {
         return $this->hasMany(Offer_History::class);
     }
+
     public function latestAmendment()
     {
         return $this->amendments()->orderByDesc('created_at')->first();
     }
 
+    public function rootOffer()
+    {
+        return $this->parentOffer ? $this->parentOffer->rootOffer() : $this;
+    }
+    public function pledgeeOriginalOffer()
+    {
+        $pledgeOwnerId = $this->pledge->user_id;
 
+        $current = $this;
+        while ($current->parentOffer && $current->parentOffer->user_id !== $pledgeOwnerId) {
+            $current = $current->parentOffer;
+        }
+
+        return $current->user_id !== $pledgeOwnerId ? $current : null;
+    }
 }

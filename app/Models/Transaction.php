@@ -19,6 +19,10 @@ class Transaction extends Model
         'commission',
         'payment_method',
         'delivery_method',
+        'collateral_confirmed_by_pledger',
+        'collateral_confirmed_by_pledgee',
+        'payment_confirmed_by_pledger',
+        'payment_confirmed_by_pledgee',
     ];
 
     public function pledge()

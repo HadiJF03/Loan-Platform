@@ -28,36 +28,42 @@ class OtpController extends Controller
             return redirect()->route('register')->withErrors(['session' => 'Session expired. Please register again.']);
         }
 
+        $mobileNumber = $data['mobile_number'];
+        Log::info('Verifying OTP for: ' . $mobileNumber);
+
         try {
-        $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
+            $twilio = new Client(env('TWILIO_SID'), env('TWILIO_AUTH_TOKEN'));
 
-        $verification = $twilio->verify->v2->services(env('TWILIO_VERIFY_SID'))
-            ->verificationChecks
-            ->create([
-                'to'   => $data['mobile_number'],
-                'code' => $request->code,
-            ]);
+            $verification = $twilio->verify->v2->services(env('TWILIO_VERIFY_SID'))
+                ->verificationChecks
+                ->create([
+                    'to'   => $mobileNumber,
+                    'code' => $request->code,
+                ]);
 
-        dd($verification); // <-- This should now output the response
+            Log::info('Twilio response status: ' . $verification->status);
 
-        if ($verification->status === 'approved') {
-            $user = User::create([
-                'name'          => $data['name'],
-                'mobile_number' => $data['mobile_number'],
-                'password'      => Hash::make($data['password']),
-                'role'          => $data['role'],
-                'otp_verified'  => true,
-            ]);
+            if ($verification->status === 'approved') {
+                $user = User::create([
+                    'name'          => $data['name'],
+                    'mobile_number' => $mobileNumber,
+                    'email'         => $data['email'],
+                    'password'      => Hash::make($data['password']),
+                    'role'          => $data['role'],
+                    'otp_verified'  => true,
+                ]);
 
-            session()->forget('otp_registration_data');
-            Auth::login($user);
+                session()->forget('otp_registration_data');
+                Auth::login($user);
 
-            return redirect()->route('dashboard')->with('success', 'Phone verified. Welcome!');
+                return redirect()->route('dashboard')->with('success', 'Phone verified. Welcome!');
+            }
+
+            return back()->withErrors(['code' => 'The verification code is invalid.']);
+        } catch (\Exception $e) {
+            Log::error('OTP verification failed: ' . $e->getMessage());
+            return back()->withErrors(['twilio' => 'Failed to verify OTP: ' . $e->getMessage()]);
         }
+    }
 
-        return back()->withErrors(['code' => 'The verification code is invalid.']);
-    } catch (\Exception $e) {
-        dd($e->getMessage());
-    }
-    }
 }
