@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Pledge extends Model
 {
     use HasFactory;
-    protected $fillable= [
+
+    protected $fillable = [
         'user_id',
-        'item_type',
+        'category_id',
         'description',
         'images',
         'requested_amount',
@@ -18,6 +19,11 @@ class Pledge extends Model
         'repayment_terms',
         'status',
     ];
+
+    protected $casts = [
+        'images' => 'array',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -28,9 +34,8 @@ class Pledge extends Model
         return $this->hasMany(Offer::class);
     }
 
-    public function transaction()
+    public function category()
     {
-        return $this->hasOne(Transaction::class);
+        return $this->belongsTo(Category::class, 'category_id');
     }
-    
 }

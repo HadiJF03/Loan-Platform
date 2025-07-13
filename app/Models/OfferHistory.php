@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Offer_History extends Model
+class OfferHistory extends Model 
 {
     use HasFactory;
-    
+
     public $timestamps = false;
+
     protected $table = 'offers_history';
     protected $fillable = [
         'offer_id',

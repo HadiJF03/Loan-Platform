@@ -2,34 +2,28 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
-     *
-     * @var list<string>
      */
     protected $fillable = [
         'name',
         'email',
         'password',
-        'mobile_number',
         'role',
-        'otp_verified',
+        'mobile_number',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * The attributes that should be hidden for arrays.
      */
     protected $hidden = [
         'password',
@@ -37,17 +31,15 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * The attributes that should be cast.
      */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+
+    /**
+     * Relationships
+     */
     public function pledges()
     {
         return $this->hasMany(Pledge::class);
@@ -58,8 +50,19 @@ class User extends Authenticatable
         return $this->hasMany(Offer::class);
     }
 
-    public function offerHistories()
+    // Optional helpers for roles
+    public function isAdmin()
     {
-        return $this->hasMany(Offer_History::class);
+        return $this->role === 'root';
+    }
+
+    public function isPledger()
+    {
+        return $this->role === 'pledger';
+    }
+
+    public function isPledgee()
+    {
+        return $this->role === 'pledgee';
     }
 }

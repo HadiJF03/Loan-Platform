@@ -7,6 +7,7 @@ use App\Models\Pledge;
 use App\Models\Offer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class TransactionController extends Controller
 {
@@ -14,30 +15,30 @@ class TransactionController extends Controller
     {
         $user = Auth::user();
 
-        // Eager-load everything needed, including parent offers
+        // Eager load pledge and offer (2-level parent nesting)
         $allTransactions = Transaction::with([
-            'pledge', 
-            'offer.parentOffer.parentOffer' // supports 2-level nesting
+            'pledge',
+            'offer.parentOffer.parentOffer'
         ])->get();
 
-        // Manually filter based on pledger or root pledgee
+        // Filter transactions for current user
         $filtered = $allTransactions->filter(function ($transaction) use ($user) {
             $pledgerId = optional($transaction->pledge)->user_id;
 
-            // Use rootOffer to find the original offer creator
-            $currentOffer = $transaction->offer;
-            while ($currentOffer?->parentOffer) {
-                $currentOffer = $currentOffer->parentOffer;
+            // Traverse to the root offer (original pledgee)
+            $rootOffer = $transaction->offer;
+            while ($rootOffer?->parentOffer) {
+                $rootOffer = $rootOffer->parentOffer;
             }
-            $pledgeeId = $currentOffer?->user_id;
+            $pledgeeId = $rootOffer?->user_id;
 
             return $user->id === $pledgerId || $user->id === $pledgeeId;
         });
 
-        // Paginate manually since it's a collection
+        // Manual pagination
         $perPage = 10;
         $page = request('page', 1);
-        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+        $paginated = new LengthAwarePaginator(
             $filtered->forPage($page, $perPage)->values(),
             $filtered->count(),
             $perPage,
@@ -90,8 +91,8 @@ class TransactionController extends Controller
             'delivery_method' => 'required|in:in-person,shipping,secure drop point',
         ]);
 
-        $startDate = now();
-        $endDate   = now()->addDays($offer->duration);
+        $startDate  = now();
+        $endDate    = $startDate->copy()->addDays($offer->duration);
         $commission = $offer->offer_amount * 0.05;
 
         $transaction = Transaction::create([
@@ -129,18 +130,17 @@ class TransactionController extends Controller
     public function confirmCollateral(Transaction $transaction)
     {
         $this->authorize('update', $transaction);
-
         $user = Auth::user();
 
         if ($user->id === $transaction->pledge->user_id) {
             $transaction->update(['collateral_confirmed_by_pledger' => true]);
         } else {
-            $offer = $transaction->offer;
-            while ($offer->parentOffer) {
-                $offer = $offer->parentOffer;
+            $rootOffer = $transaction->offer;
+            while ($rootOffer->parentOffer) {
+                $rootOffer = $rootOffer->parentOffer;
             }
 
-            if ($user->id === $offer->user_id) {
+            if ($user->id === $rootOffer->user_id) {
                 $transaction->update(['collateral_confirmed_by_pledgee' => true]);
             }
         }
@@ -153,19 +153,17 @@ class TransactionController extends Controller
     public function confirmPayment(Transaction $transaction)
     {
         $this->authorize('update', $transaction);
-
         $user = Auth::user();
 
         if ($user->id === $transaction->pledge->user_id) {
             $transaction->update(['payment_confirmed_by_pledger' => true]);
         } else {
-            // Traverse to the root offer (original pledgee)
-            $offer = $transaction->offer;
-            while ($offer->parentOffer) {
-                $offer = $offer->parentOffer;
+            $rootOffer = $transaction->offer;
+            while ($rootOffer->parentOffer) {
+                $rootOffer = $rootOffer->parentOffer;
             }
 
-            if ($user->id === $offer->user_id) {
+            if ($user->id === $rootOffer->user_id) {
                 $transaction->update(['payment_confirmed_by_pledgee' => true]);
             }
         }
@@ -175,7 +173,9 @@ class TransactionController extends Controller
         return back()->with('success', 'Payment confirmation saved.');
     }
 
-
+    /**
+     * Automatically mark transaction as completed if all confirmations are true
+     */
     protected function checkAndComplete(Transaction $transaction)
     {
         if (

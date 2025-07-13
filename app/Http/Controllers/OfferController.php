@@ -4,15 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Offer;
 use App\Models\Pledge;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
 use App\Models\Transaction;
-use Illuminate\Support\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class OfferController extends Controller
 {
-
     public function index()
     {
         $user = Auth::user();
@@ -37,6 +34,7 @@ class OfferController extends Controller
 
     public function create(Pledge $pledge)
     {
+        $this->authorize('create', Offer::class);
         return view('offers.create', compact('pledge'));
     }
 
@@ -50,59 +48,50 @@ class OfferController extends Controller
             'terms'        => 'nullable|string',
         ]);
 
-        $data['user_id'] = Auth::id();
-        $data['pledge_id'] = $pledge->id;
-        $data['status'] = 'pending';
+        $data['user_id']     = Auth::id();
+        $data['pledge_id']   = $pledge->id;
+        $data['status']      = 'pending';
         $data['is_amendment'] = false;
 
-        // Create the offer
         Offer::create($data);
 
-        // Mark the pledge as negotiating
         $pledge->update(['status' => 'negotiating']);
 
-        return redirect()->route('pledges.browse', $pledge)->with('success', 'Offer submitted.');
+        return redirect()->route('pledges.browse')->with('success', 'Offer submitted.');
     }
-
 
     public function accept(Offer $offer)
     {
         $this->authorize('manage', $offer);
 
-        // Accept the offer
         $offer->update(['status' => 'accepted']);
 
-        // Close the related pledge
         $pledge = $offer->pledge;
         $pledge->update(['status' => 'finalized']);
 
-        // Determine start and end dates
         $startDate = now();
-        $endDate = now()->addDays($offer->duration);
+        $endDate   = now()->addDays($offer->duration);
 
-        // Create the transaction
         Transaction::create([
-            'pledge_id'         => $offer->pledge_id,
-            'offer_id'          => $offer->id,
-            'start_date'        => $startDate,
-            'end_date'          => $endDate,
-            'collateral_status' => 'active',
-            'payment_status'    => 'pending',
-            'commission'        => 0, // Add real logic later
-            'payment_method'    => null,
-            'delivery_method'   => null,
-            'collateral_confirmed_by_pledger' => false,
-            'collateral_confirmed_by_pledgee' => false,
-            'payment_confirmed_by_pledger'    => false,
-            'payment_confirmed_by_pledgee'    => false,
+            'pledge_id'                         => $pledge->id,
+            'offer_id'                          => $offer->id,
+            'start_date'                        => $startDate,
+            'end_date'                          => $endDate,
+            'collateral_status'                => 'active',
+            'payment_status'                   => 'pending',
+            'commission'                       => 0, // Placeholder: update with real logic
+            'payment_method'                   => null,
+            'delivery_method'                  => null,
+            'collateral_confirmed_by_pledger'  => false,
+            'collateral_confirmed_by_pledgee'  => false,
+            'payment_confirmed_by_pledger'     => false,
+            'payment_confirmed_by_pledgee'     => false,
         ]);
 
         return redirect()
             ->route('transactions.index')
-            ->with('success', 'Offer accepted and transaction created. Pledge marked as closed.');
+            ->with('success', 'Offer accepted and transaction created. Pledge marked as finalized.');
     }
-
-
 
     public function reject(Offer $offer)
     {
@@ -125,15 +114,14 @@ class OfferController extends Controller
     public function amendForm(Offer $offer)
     {
         $this->authorize('amend', $offer);
+
         return view('offers.amend', compact('offer'));
     }
-
-
 
     public function amend(Request $request, Offer $offer)
     {
         $this->authorize('amend', $offer);
-        
+
         $data = $request->validate([
             'offer_amount' => 'required|numeric|min:1',
             'duration'     => 'required|integer|min:1',
@@ -144,18 +132,17 @@ class OfferController extends Controller
 
         Offer::create([
             'pledge_id'       => $offer->pledge_id,
-            'user_id'         => auth()->id(),
+            'user_id'         => Auth::id(),
             'offer_amount'    => $data['offer_amount'],
             'duration'        => $data['duration'],
             'terms'           => $data['terms'],
-            'status'          => 'pending', // new offer starts pending
+            'status'          => 'pending',
             'is_amendment'    => true,
             'parent_offer_id' => $offer->id,
         ]);
 
         return redirect()->route('offers.index')->with('success', 'Amended offer submitted.');
     }
-
 
     public function edit(Offer $offer)
     {

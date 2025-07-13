@@ -2,67 +2,47 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Offer extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'pledge_id',
         'user_id',
+        'pledge_id',
         'offer_amount',
-        'duration',
-        'terms',
         'status',
-        'is_amendment',
-        'parent_offer_id',
+        'parent_id',
+        'commission',
     ];
 
-    public function pledge()
-    {
-        return $this->belongsTo(Pledge::class);
-    }
+    protected $casts = [
+        'commission' => 'decimal:2',
+    ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function amendments()
+    public function pledge()
     {
-        return $this->hasMany(Offer::class, 'parent_offer_id');
+        return $this->belongsTo(Pledge::class);
     }
 
     public function parentOffer()
     {
-        return $this->belongsTo(Offer::class, 'parent_offer_id');
+        return $this->belongsTo(Offer::class, 'parent_id');
     }
 
-    public function history()
+    public function childOffers()
     {
-        return $this->hasMany(Offer_History::class);
+        return $this->hasMany(Offer::class, 'parent_id');
     }
-
-    public function latestAmendment()
+    public function amendments()
     {
-        return $this->amendments()->orderByDesc('created_at')->first();
-    }
-
-    public function rootOffer()
-    {
-        return $this->parentOffer ? $this->parentOffer->rootOffer() : $this;
-    }
-    public function pledgeeOriginalOffer()
-    {
-        $pledgeOwnerId = $this->pledge->user_id;
-
-        $current = $this;
-        while ($current->parentOffer && $current->parentOffer->user_id !== $pledgeOwnerId) {
-            $current = $current->parentOffer;
-        }
-
-        return $current->user_id !== $pledgeOwnerId ? $current : null;
+        return $this->hasMany(Offer::class, 'parent_offer_id');
     }
 }

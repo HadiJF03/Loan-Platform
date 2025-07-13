@@ -13,6 +13,21 @@
                     @csrf
                     @method('PUT')
 
+                    <!-- Category -->
+                    <div class="mb-4">
+                        <x-input-label for="category_id" :value="__('Category')" />
+                        <select name="category_id" id="category_id"
+                            class="block mt-1 w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            @foreach($categories as $category)
+                                <option value="{{ $category->id }}"
+                                    {{ old('category_id', $pledge->category_id) == $category->id ? 'selected' : '' }}>
+                                    {{ $category->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
+                    </div>
+
                     <!-- Description -->
                     <div class="mb-4">
                         <x-input-label for="description" :value="__('Description')" />
@@ -25,7 +40,8 @@
                     <div class="mb-4">
                         <x-input-label for="requested_amount" :value="__('Requested Amount')" />
                         <x-text-input id="requested_amount" name="requested_amount" type="number" step="0.01" required
-                            class="block mt-1 w-full" value="{{ old('requested_amount', $pledge->requested_amount) }}" />
+                            class="block mt-1 w-full"
+                            value="{{ old('requested_amount', $pledge->requested_amount) }}" />
                         <x-input-error :messages="$errors->get('requested_amount')" class="mt-2" />
                     </div>
 
@@ -33,7 +49,8 @@
                     <div class="mb-4">
                         <x-input-label for="collateral_duration" :value="__('Collateral Duration (Days)')" />
                         <x-text-input id="collateral_duration" name="collateral_duration" type="number" required
-                            class="block mt-1 w-full" value="{{ old('collateral_duration', $pledge->collateral_duration) }}" />
+                            class="block mt-1 w-full"
+                            value="{{ old('collateral_duration', $pledge->collateral_duration) }}" />
                         <x-input-error :messages="$errors->get('collateral_duration')" class="mt-2" />
                     </div>
 
@@ -82,7 +99,7 @@
     </div>
     @else
         <div class="text-red-600 font-semibold p-6">
-            You are not authorized to edit this pledge.
+            {{ __('You are not authorized to edit this pledge.') }}
         </div>
     @endcan
 </x-app-layout>

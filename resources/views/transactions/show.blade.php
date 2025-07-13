@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8 mt-6">
             <div class="bg-white dark:bg-gray-800 shadow p-6 rounded space-y-4">
 
                 <!-- Transaction Overview -->

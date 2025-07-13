@@ -7,30 +7,49 @@ use App\Models\User;
 
 class OfferPolicy
 {
-    public function update(User $user, Offer $offer)
+
+    public function viewAny(User $user): bool
     {
-        // Only allow editing your own offer
-        return $user->id === $offer->user_id;
+        return $user->role === 'root';
     }
 
-    public function delete(User $user, Offer $offer)
+    /**
+     * Determine if the user can create an offer.
+     */
+    public function create(User $user): bool
     {
-        return $user->id === $offer->user_id;
+        return in_array($user->role, ['pledgee', 'pledger']);
     }
 
-    public function manage(User $user, Offer $offer)
+    /**
+     * Determine if the user can update the offer.
+     */
+    public function update(User $user, Offer $offer): bool
+    {
+        return $user->id === $offer->user_id || $user->role === 'root';
+    }
+
+    /**
+     * Determine if the user can delete the offer.
+     */
+    public function delete(User $user, Offer $offer): bool
+    {
+        return $user->id === $offer->user_id || $user->role === 'root';
+    }
+
+    /**
+     * Determine if the user can manage an offer they didn't create.
+     */
+    public function manage(User $user, Offer $offer): bool
     {
         return $user->id !== $offer->user_id;
     }
 
-    public function amend(User $user, Offer $offer)
+    /**
+     * Determine if the user can propose an amendment to the offer.
+     */
+    public function amend(User $user, Offer $offer): bool
     {
-        return $user->id != $offer->user_id ;
-    }
-
-
-    public function create(User $user)
-    {
-        return in_array($user->role, ['pledgee', 'pledger']);
+        return $user->id !== $offer->user_id;
     }
 }

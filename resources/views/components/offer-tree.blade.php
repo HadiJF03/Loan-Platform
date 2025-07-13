@@ -12,6 +12,17 @@
     </p>
     <p><strong>By:</strong> {{ $offer->user->name }}</p>
 
+    @if ($offer->pledge)
+        <p><strong>Pledge:</strong> {{ Str::limit($offer->pledge->description, 60) }}</p>
+        <p><strong>Category:</strong> {{ $offer->pledge->category->name ?? 'N/A' }}</p>
+    @endif
+
+    @if ($offer->terms)
+        <div class="mt-2">
+            <p><strong>Terms:</strong> {{ $offer->terms }}</p>
+        </div>
+    @endif
+
     <div class="mt-3 flex flex-wrap gap-2">
         @php $isLatest = $offer->amendments->isEmpty(); @endphp
 
@@ -51,12 +62,6 @@
             </form>
         @endcan
     </div>
-
-    @if ($offer->terms)
-        <div class="mt-3">
-            <p><strong>Terms:</strong> {{ $offer->terms }}</p>
-        </div>
-    @endif
 
     <!-- Show amendment chain -->
     @foreach ($offer->amendments as $child)

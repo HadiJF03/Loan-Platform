@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pledge;
+use App\Models\Category;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\Request;
 
 class PledgeController extends Controller
 {
@@ -21,8 +22,8 @@ class PledgeController extends Controller
 
         $query = Pledge::with('user');
 
-        if ($request->filled('item_type')) {
-            $query->where('item_type', $request->item_type);
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
         }
 
         if ($request->filled('min_amount')) {
@@ -45,19 +46,20 @@ class PledgeController extends Controller
                 break;
             default:
                 $query->latest();
-                break;
         }
 
         $pledges = $query->paginate(10)->withQueryString();
+        $categories = Category::all();
 
-        return view('pledges.browse', compact('pledges'));
+        return view('pledges.browse', compact('pledges', 'categories'));
     }
 
     public function create()
     {
         $this->authorize('create', Pledge::class);
 
-        return view('pledges.create');
+        $categories = Category::all();
+        return view('pledges.create', compact('categories'));
     }
 
     public function store(Request $request)
@@ -65,10 +67,10 @@ class PledgeController extends Controller
         $this->authorize('create', Pledge::class);
 
         $data = $request->validate([
-            'item_type'           => 'required|string|in:Jewelry,Electronics,Vehicles,Real Estate,Precious Metals',
+            'category_id'         => 'required|exists:categories,id',
             'description'         => 'nullable|string',
-            'requested_amount'    => 'required|numeric',
-            'collateral_duration' => 'required|integer',
+            'requested_amount'    => 'required|numeric|min:0',
+            'collateral_duration' => 'required|integer|min:1',
             'repayment_terms'     => 'nullable|string',
             'images.*'            => 'image|max:2048',
         ]);
@@ -99,7 +101,8 @@ class PledgeController extends Controller
     {
         $this->authorize('update', $pledge);
 
-        return view('pledges.edit', compact('pledge'));
+        $categories = Category::all();
+        return view('pledges.edit', compact('pledge', 'categories'));
     }
 
     public function update(Request $request, Pledge $pledge)
@@ -107,16 +110,15 @@ class PledgeController extends Controller
         $this->authorize('update', $pledge);
 
         $data = $request->validate([
+            'category_id'         => 'required|exists:categories,id',
             'description'         => 'required|string',
             'requested_amount'    => 'required|numeric|min:0',
-            'collateral_duration' => 'required|integer',
+            'collateral_duration' => 'required|integer|min:1',
             'repayment_terms'     => 'nullable|string',
             'images.*'            => 'image|max:2048',
         ]);
 
-        // Handle optional image replacement
         if ($request->hasFile('images')) {
-            // Optionally delete old images
             if ($pledge->images) {
                 foreach (json_decode($pledge->images, true) as $oldImage) {
                     Storage::disk('public')->delete($oldImage);
@@ -139,7 +141,6 @@ class PledgeController extends Controller
     {
         $this->authorize('delete', $pledge);
 
-        // Optional: delete images on removal
         if ($pledge->images) {
             foreach (json_decode($pledge->images, true) as $img) {
                 Storage::disk('public')->delete($img);

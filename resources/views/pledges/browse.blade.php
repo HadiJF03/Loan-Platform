@@ -12,12 +12,12 @@
             <form method="GET" action="{{ route('pledges.browse') }}" class="mb-6 bg-white p-4 rounded shadow-sm">
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
-                        <label for="item_type" class="block font-medium text-sm text-gray-700">Item Type</label>
-                        <select name="item_type" id="item_type" class="form-select w-full mt-1">
+                        <label for="category_id" class="block font-medium text-sm text-gray-700">Category</label>
+                        <select name="category_id" id="category_id" class="form-select w-full mt-1">
                             <option value="">All</option>
-                            @foreach(['Electronics', 'Jewelry', 'Vehicles', 'Real Estate', 'Precious Metals'] as $type)
-                                <option value="{{ $type }}" {{ request('item_type') == $type ? 'selected' : '' }}>
-                                    {{ $type }}
+                            @foreach ($categories as $category)
+                                <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
+                                    {{ $category->name }}
                                 </option>
                             @endforeach
                         </select>
@@ -65,12 +65,12 @@
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-4 mb-4">
                     <p><strong>Description:</strong> {{ $pledge->description }}</p>
                     <p><strong>Requested Amount:</strong> {{ number_format($pledge->requested_amount, 2) }} SAR</p>
-                    <p><strong>Item Type:</strong> {{ $pledge->item_type }}</p>
+                    <p><strong>Category:</strong> {{ $pledge->category->name ?? 'N/A' }}</p>
                     <p><strong>By:</strong> {{ $pledge->user->name ?? 'Unknown' }}</p>
 
                     @if($pledge->images)
                         <div class="mt-2 flex gap-2 flex-wrap">
-                            @foreach(json_decode($pledge->images, true) as $img)
+                            @foreach($pledge->images as $img)
                                 <img src="{{ asset('storage/' . $img) }}" alt="Pledge Image" class="w-32 h-32 object-cover rounded border" />
                             @endforeach
                         </div>

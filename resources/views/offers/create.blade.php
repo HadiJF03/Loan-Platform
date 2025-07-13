@@ -7,6 +7,18 @@
 
     <div class="py-12">
         <div class="max-w-xl mx-auto sm:px-6 lg:px-8">
+            
+            <!-- Pledge Summary -->
+            <div class="bg-white dark:bg-gray-800 shadow-md rounded p-4 mb-6">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Pledge Details</h3>
+                <p><strong>Description:</strong> {{ $pledge->description }}</p>
+                <p><strong>Category:</strong> {{ $pledge->category->name ?? 'N/A' }}</p>
+                <p><strong>Requested Amount:</strong> {{ number_format($pledge->requested_amount, 2) }} SAR</p>
+                <p><strong>Collateral Duration:</strong> {{ $pledge->collateral_duration }} days</p>
+                <p><strong>Repayment Terms:</strong> {{ $pledge->repayment_terms }}</p>
+            </div>
+
+            <!-- Offer Form -->
             <form method="POST" action="{{ route('offers.store', $pledge->id) }}">
                 @csrf
 

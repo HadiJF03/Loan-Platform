@@ -26,7 +26,7 @@
 
                         <p><strong>Description:</strong> {{ $pledge->description }}</p>
                         <p><strong>Requested Amount:</strong> {{ number_format($pledge->requested_amount, 2) }} SAR</p>
-                        <p><strong>Item Type:</strong> {{ $pledge->item_type }}</p>
+                        <p><strong>Category:</strong> {{ $pledge->category->name ?? 'N/A' }}</p>
                         <p><strong>Duration:</strong> {{ $pledge->collateral_duration }} days</p>
                         <p><strong>Repayment Terms:</strong> {{ $pledge->repayment_terms }}</p>
                         <p><strong>Status:</strong>

@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->string('mobile_number')->unique()->after('name');
-            $table->enum('role',['pledger','pledgee'])->after('mobile_number');
+            $table->enum('role',['pledger','pledgee','root'])->after('mobile_number');
             $table->boolean('otp_verified')->default(false)->after('role');
         });
     }
